@@ -1,0 +1,9 @@
+Resources:
+  resumebucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      BucketName: ${self:custom.resumebucket}
+      BucketEncryption:          
+        ServerSideEncryptionConfiguration:            
+          - BucketKeyEnabled: true

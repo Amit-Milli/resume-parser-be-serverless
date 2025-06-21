@@ -1,0 +1,189 @@
+service: resume-parser
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  # Our stage and region is based on what is passed in when running serverless commands.
+  stage: ${opt:stage}
+  region: ${opt:region}
+  timeout: 30 # API Gateway has a maximum timeout of 30 seconds
+  logRetentionInDays: 1
+  # Uncommnent later
+  # versionFunctions: false
+  # Enables tracing
+  # tracing:
+  #   apiGateway: true
+  #   lambda: true
+
+  # To load environment variables externally
+  # rename env.example to .env and uncomment
+  # the following line. Also, make sure to not
+  # commit your .env.
+  # These environment variables are made available to our functions
+  # under process.env.
+  environment:
+    stage: ${opt:stage}
+    region: ${opt:region}
+    NODE_OPTIONS: --enable-source-maps
+    APP_URL: ${env:APP_URL}
+    SECRET_KEY_FOR_ENCRYPTION: ${env:SECRET_KEY_FOR_ENCRYPTION}
+    bucketsuffix: ${env:bucketsuffix}
+    EVENT_QUEUE_URL: 
+      Ref: EventQueue
+    REST_ENDPOINT:
+      Fn::Join:
+        - ""
+        - - Ref: ApiGatewayRestApi
+          - .execute-api.
+          - Ref: AWS::Region
+          - .amazonaws.com/
+          - ${opt:stage}
+
+  iam:
+    role:
+      statements:
+
+        # SQS
+        - Effect: Allow
+          Action:
+            - sqs:*
+          Resource:
+            - "Fn::GetAtt": [ EventQueue, Arn ]
+
+        # UsersTable
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+          Resource:
+            - { "Fn::GetAtt": [UsersTable, Arn] }
+            - Fn::Join:
+                - "/"
+                - - { "Fn::GetAtt": ["UsersTable", "Arn"] }
+                  - "index/*"
+
+        # S3 Bucket
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload,
+            - s3:ListMultipartUploadParts,
+            - s3:ListBucketMultipartUploads,
+          Resource:
+            - "Fn::GetAtt": [resumebucket, Arn]
+
+plugins:
+  # - serverless-bundle
+  # - serverless-offline
+  # - serverless-dotenv-plugin
+  # - serverless-pseudo-parameters
+  - serverless-esbuild
+  # - serverless-step-functions
+  - serverless-prune-plugin
+  # - serverless-plugin-tracing
+
+custom:
+  # Our stage and region is based on what is we have set in the provider section. Or fallsback to what we have set in .env file.
+  stage: ${self:provider.stage}
+  region: ${self:provider.region}
+
+  accountsTable: accountsTable-${self:provider.stage}
+  usersTable: usersTable-${self:provider.stage}
+  resumebucket: resume-parser-eightfold-${env:bucketsuffix} #this needs to come from provider and should be universal to file
+  EventQueue: EventStandardQueue-${self:provider.stage}
+  deletionPolicy: 
+    production: Retain
+    sprouts: Retain
+    other: Delete
+  pointInTimeRecoveryEnabled: 
+    production: true # please change the name production to new stage name for production app backednd
+    other: false
+  memorySize: 
+    production: 9216
+    other: 1024
+    # other: 9216
+    
+  # webpack:
+  #   webpackConfig: ./webpack.config.js
+  #   includeModules:
+  #     forceExclude:
+  #       - aws-sdk
+  
+  # bundle:
+  #   linting: true
+  #   esbuild: true
+  #   disableForkTsChecker: true
+  #   generateStatsFiles: true
+
+  esbuild:
+    concurrency: 1
+    bundle: true
+    minify: true
+    sourcemap: true #https://serverless.pub/aws-lambda-node-sourcemaps/#enabling-the-native-source-map-support-for-node-12
+    keepNames: true
+    target: node16
+    
+  prune:
+    automatic: true
+    # includeLayers: true // Turning it on does not make any difference in overall lambda size
+    number: 1
+
+# Create an optimized package for our functions
+package:
+  individually: true
+
+functions:
+  user:
+    handler: src/handlers/user.main
+    memorySize: 1024
+    events:
+      - http:
+          path: user
+          method: any
+          cors: true
+          integration: lambda
+
+      - http:
+          path: user/{accountId}
+          method: get
+          cors: true
+          integration: lambda
+
+      - http:
+          path: user/registration/{route}
+          method: any
+          cors: true
+          integration: lambda
+
+  WebsitePublicHandler:
+    handler: src/handlers/public/website.main
+    memorySize: ${self:custom.memorySize.${opt:stage}, self:custom.memorySize.other}
+    # memorySize: 1024
+    events:
+      - http:
+          path: website/{route}
+          method: POST
+          cors: true
+          integration: lambda
+
+# Create our resources with separate CloudFormation templates
+resources:
+  # API Gateway Errors
+  - ${file(src/resources/api-gateway-errors.yml)}
+  # DynamoDB
+  - ${file(src/resources/dynamodb-table.yml)}
+  # Bucket
+  - ${file(src/resources/s3-bucket.yml)}
+  # SQS
+  - ${file(src/resources/sqs.yml)}

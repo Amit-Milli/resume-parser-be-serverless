@@ -1,0 +1,38 @@
+# userID, Name ,Email, LastName, Phone Number, Company, `Owner, addedBY, LinkedIn, info(metadata)
+Resources:
+
+  # Description - User details specific for a account returns tags, customised views, personal info
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      TableName: ${self:custom.usersTable}
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: accountId
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: accountId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: ${self:custom.pointInTimeRecoveryEnabled.${opt:stage}, self:custom.pointInTimeRecoveryEnabled.other}
+
+      GlobalSecondaryIndexes:
+        - IndexName: FetchAccountInfo
+          KeySchema:
+            - AttributeName: accountId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: FetchUserUsingEmail-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL      

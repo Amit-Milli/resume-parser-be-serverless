@@ -1,0 +1,53 @@
+{
+    "env": {
+        "browser": true,
+        "es2022": true,
+        "node": true
+    },
+    "extends": [
+        "airbnb-base",
+        "eslint:recommended",
+        "plugin:import/recommended"
+    ],
+    "plugins": [
+        "import"
+    ],
+    "parser": "@babel/eslint-parser",
+    "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "module",
+        "requireConfigFile": false
+    },
+    "rules": {
+        "no-multiple-empty-lines": [
+            "error",
+            {
+                "max": 1,
+                "maxEOF": 1,
+                "maxBOF": 0
+            }
+        ],
+        "no-plusplus": [
+            "warn",
+            {
+                "allowForLoopAfterthoughts": true
+            }
+        ],
+        "import/prefer-default-export": "off", // Keep it off
+        "no-nested-ternary": "off", // Keep it off
+        "semi": "error", // Keep it off
+        "no-console": "error", // Keep it off
+        "max-len": "off", // Keep it off
+        "no-underscore-dangle": "off", // Keep it off
+        "consistent-return": "off", // Keep it off
+        "prefer-destructuring": "off", // // Keep it off
+        "no-await-in-loop": "off", // TODO: Abd and Arjun to look into on Priority
+        "no-return-await": "off", // Keep it off
+        "no-continue": "off", // Keep it off
+        "no-loop-func": "off", // TODO: Abd and Arjun to look into it
+        "class-methods-use-this": "off",
+        "no-param-reassign": "off", // Keep it off
+        "no-restricted-syntax": "off", // Keep it off
+        "camelcase": "off" // Keep it off
+    }
+}
