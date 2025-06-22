@@ -1,18 +1,48 @@
-export const USERS_TABLE_NAME = `usersTable-${process.env.stage || 'test'}`;
-export const RESUME_S3_BUCKET = `resumebucketresume-parser-eightfold-${process.env.bucketsuffix || 'test'}`;
-
-export const KEY_CONDITION_OPERATORS = {
-  EQ: 'EQ',
-  LT: 'LT',
-  GT: 'GT',
-  LE: 'LE',
-  GE: 'GE',
-  BETWEEN: 'BETWEEN',
-  BEGINS_WITH: 'BEGINS_WITH',
+// DynamoDB Table Names
+export const tableNames = {
+  jobsTable: `${process.env.STAGE || process.env.SERVERLESS_DATA_MODEL_STAGE || 'dev'}-jobs`,
+  resumesTable: `${process.env.STAGE || process.env.SERVERLESS_DATA_MODEL_STAGE || 'dev'}-resumes`,
+  matchScoresTable: `${process.env.STAGE || process.env.SERVERLESS_DATA_MODEL_STAGE || 'dev'}-match-scores`,
+  processingQueueTable: `${process.env.STAGE || process.env.SERVERLESS_DATA_MODEL_STAGE || 'dev'}-processing-queue`,
 };
-Object.freeze(KEY_CONDITION_OPERATORS);
 
+// Processing status constants
+export const PROCESSING_STATUS = {
+  PENDING: 'PENDING',
+  PARSING: 'PARSING',
+  EXTRACTING_SKILLS: 'EXTRACTING_SKILLS',
+  SCORING: 'SCORING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+};
+
+// Resume status constants
+export const RESUME_STATUS = {
+  UPLOADED: 'UPLOADED',
+  PROCESSING: 'PROCESSING',
+  SKILL_EXTRACTION: 'SKILL_EXTRACTION',
+  SCORING: 'SCORING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+};
+
+// SQS Queue URLs
+export const SQS_QUEUES = {
+  RESUME_PROCESSING_QUEUE_URL: process.env.RESUME_PROCESSING_QUEUE_URL,
+  SKILL_EXTRACTION_QUEUE_URL: process.env.SKILL_EXTRACTION_QUEUE_URL,
+  SCORING_QUEUE_URL: process.env.SCORING_QUEUE_URL,
+};
+
+// S3 Bucket
+export const S3_BUCKETS = {
+  RESUME_S3_BUCKET: process.env.RESUME_S3_BUCKET,
+};
+
+// Export all constants
 export default {
-  USERS_TABLE_NAME,
-  RESUME_S3_BUCKET,
+  ...tableNames,
+  PROCESSING_STATUS,
+  RESUME_STATUS,
+  SQS_QUEUES,
+  S3_BUCKETS,
 };

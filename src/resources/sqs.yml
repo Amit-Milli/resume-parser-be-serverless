@@ -1,7 +1,80 @@
 Resources:
+  # Main Event Queue (existing)
   EventQueue:
     Type: "AWS::SQS::Queue"
     DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
     Properties:
       QueueName: sqs-${self:custom.EventQueue}
       VisibilityTimeout: 899
+      MessageRetentionPeriod: 1209600  # 14 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EventQueueDLQ.Arn
+        maxReceiveCount: 3
+
+  # Dead Letter Queue for failed messages
+  EventQueueDLQ:
+    Type: "AWS::SQS::Queue"
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      QueueName: sqs-${self:custom.EventQueue}-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  # Resume Processing Queue - For initial resume upload processing
+  ResumeProcessingQueue:
+    Type: "AWS::SQS::Queue"
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      QueueName: resume-processing-queue-${self:provider.stage}
+      VisibilityTimeout: 300  # 5 minutes for parsing
+      MessageRetentionPeriod: 1209600  # 14 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ResumeProcessingDLQ.Arn
+        maxReceiveCount: 3
+
+  # Dead Letter Queue for Resume Processing
+  ResumeProcessingDLQ:
+    Type: "AWS::SQS::Queue"
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      QueueName: resume-processing-dlq-${self:provider.stage}
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  # Skill Extraction Queue - For LLM skill extraction
+  SkillExtractionQueue:
+    Type: "AWS::SQS::Queue"
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      QueueName: skill-extraction-queue-${self:provider.stage}
+      VisibilityTimeout: 600  # 10 minutes for LLM processing
+      MessageRetentionPeriod: 1209600  # 14 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SkillExtractionDLQ.Arn
+        maxReceiveCount: 3
+
+  # Dead Letter Queue for Skill Extraction
+  SkillExtractionDLQ:
+    Type: "AWS::SQS::Queue"
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      QueueName: skill-extraction-dlq-${self:provider.stage}
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  # Scoring Queue - For match score computation
+  ScoringQueue:
+    Type: "AWS::SQS::Queue"
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      QueueName: scoring-queue-${self:provider.stage}
+      VisibilityTimeout: 600  # 10 minutes for scoring
+      MessageRetentionPeriod: 1209600  # 14 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ScoringDLQ.Arn
+        maxReceiveCount: 3
+
+  # Dead Letter Queue for Scoring
+  ScoringDLQ:
+    Type: "AWS::SQS::Queue"
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      QueueName: scoring-dlq-${self:provider.stage}
+      MessageRetentionPeriod: 1209600  # 14 days

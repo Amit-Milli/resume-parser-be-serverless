@@ -3,7 +3,7 @@ useDotenv: true
 
 provider:
   name: aws
-  runtime: nodejs16.x
+  runtime: nodejs20.x
   # Our stage and region is based on what is passed in when running serverless commands.
   stage: ${opt:stage}
   region: ${opt:region}
@@ -27,8 +27,22 @@ provider:
     region: ${opt:region}
     NODE_OPTIONS: --enable-source-maps
     APP_URL: ${env:APP_URL}
-    SECRET_KEY_FOR_ENCRYPTION: ${env:SECRET_KEY_FOR_ENCRYPTION}
     bucketsuffix: ${env:bucketsuffix}
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    # DynamoDB Table Names
+    JOBS_TABLE_NAME: ${self:custom.jobsTable}
+    RESUMES_TABLE_NAME: ${self:custom.resumesTable}
+    MATCH_SCORES_TABLE_NAME: ${self:custom.matchScoresTable}
+    PROCESSING_QUEUE_TABLE_NAME: ${self:custom.processingQueueTable}
+    # SQS Queue URLs
+    RESUME_PROCESSING_QUEUE_URL: 
+      Ref: ResumeProcessingQueue
+    SKILL_EXTRACTION_QUEUE_URL:
+      Ref: SkillExtractionQueue
+    SCORING_QUEUE_URL:
+      Ref: ScoringQueue
+    # S3 Bucket
+    RESUME_S3_BUCKET: ${self:custom.resumebucket}
     EVENT_QUEUE_URL: 
       Ref: EventQueue
     REST_ENDPOINT:
@@ -50,8 +64,15 @@ provider:
             - sqs:*
           Resource:
             - "Fn::GetAtt": [ EventQueue, Arn ]
+            - "Fn::GetAtt": [ ResumeProcessingQueue, Arn ]
+            - "Fn::GetAtt": [ SkillExtractionQueue, Arn ]
+            - "Fn::GetAtt": [ ScoringQueue, Arn ]
+            - "Fn::GetAtt": [ EventQueueDLQ, Arn ]
+            - "Fn::GetAtt": [ ResumeProcessingDLQ, Arn ]
+            - "Fn::GetAtt": [ SkillExtractionDLQ, Arn ]
+            - "Fn::GetAtt": [ ScoringDLQ, Arn ]
 
-        # UsersTable
+        # JobsTable
         - Effect: Allow
           Action:
             - dynamodb:DescribeTable
@@ -64,10 +85,67 @@ provider:
             - dynamodb:BatchGetItem
             - dynamodb:BatchWriteItem
           Resource:
-            - { "Fn::GetAtt": [UsersTable, Arn] }
+            - { "Fn::GetAtt": [JobsTable, Arn] }
             - Fn::Join:
                 - "/"
-                - - { "Fn::GetAtt": ["UsersTable", "Arn"] }
+                - - { "Fn::GetAtt": ["JobsTable", "Arn"] }
+                  - "index/*"
+
+        # ResumesTable
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+          Resource:
+            - { "Fn::GetAtt": [ResumesTable, Arn] }
+            - Fn::Join:
+                - "/"
+                - - { "Fn::GetAtt": ["ResumesTable", "Arn"] }
+                  - "index/*"
+
+        # MatchScoresTable
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+          Resource:
+            - { "Fn::GetAtt": [MatchScoresTable, Arn] }
+            - Fn::Join:
+                - "/"
+                - - { "Fn::GetAtt": ["MatchScoresTable", "Arn"] }
+                  - "index/*"
+
+        # ProcessingQueueTable
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+          Resource:
+            - { "Fn::GetAtt": [ProcessingQueueTable, Arn] }
+            - Fn::Join:
+                - "/"
+                - - { "Fn::GetAtt": ["ProcessingQueueTable", "Arn"] }
                   - "index/*"
 
         # S3 Bucket
@@ -88,7 +166,7 @@ plugins:
   # - serverless-offline
   # - serverless-dotenv-plugin
   # - serverless-pseudo-parameters
-  - serverless-esbuild
+  # - serverless-esbuild  # Removed - Serverless v4 includes ESBuild out-of-the-box
   # - serverless-step-functions
   - serverless-prune-plugin
   # - serverless-plugin-tracing
@@ -99,7 +177,10 @@ custom:
   region: ${self:provider.region}
 
   accountsTable: accountsTable-${self:provider.stage}
-  usersTable: usersTable-${self:provider.stage}
+  jobsTable: jobsTable-${self:provider.stage}
+  resumesTable: resumesTable-${self:provider.stage}
+  matchScoresTable: matchScoresTable-${self:provider.stage}
+  processingQueueTable: processingQueueTable-${self:provider.stage}
   resumebucket: resume-parser-eightfold-${env:bucketsuffix} #this needs to come from provider and should be universal to file
   EventQueue: EventStandardQueue-${self:provider.stage}
   deletionPolicy: 
@@ -126,14 +207,20 @@ custom:
   #   disableForkTsChecker: true
   #   generateStatsFiles: true
 
+  # Built-in ESBuild configuration for Serverless Framework v4
   esbuild:
     concurrency: 1
     bundle: true
     minify: true
-    sourcemap: true #https://serverless.pub/aws-lambda-node-sourcemaps/#enabling-the-native-source-map-support-for-node-12
+    sourcemap: true
     keepNames: true
-    target: node16
-    
+    target: node20
+    format: esm
+    mainFields: ['module', 'main']
+    external:
+      - '@aws-sdk/*'
+      - 'aws-sdk'
+
   prune:
     automatic: true
     # includeLayers: true // Turning it on does not make any difference in overall lambda size
@@ -144,38 +231,88 @@ package:
   individually: true
 
 functions:
-  user:
-    handler: src/handlers/user.main
-    memorySize: 1024
+  # Resume Upload Handler
+  ResumeUploadHandler:
+    handler: src/handlers/resumeUpload.main
+    memorySize: 1024  # Reduced from 2048MB
+    timeout: 30       # Reduced from 60s
     events:
       - http:
-          path: user
-          method: any
-          cors: true
-          integration: lambda
-
-      - http:
-          path: user/{accountId}
-          method: get
-          cors: true
-          integration: lambda
-
-      - http:
-          path: user/registration/{route}
-          method: any
-          cors: true
-          integration: lambda
-
-  WebsitePublicHandler:
-    handler: src/handlers/public/website.main
-    memorySize: ${self:custom.memorySize.${opt:stage}, self:custom.memorySize.other}
-    # memorySize: 1024
-    events:
-      - http:
-          path: website/{route}
+          path: resume/upload
           method: POST
           cors: true
           integration: lambda
+
+  # Job Management Handlers
+  JobsHandler:
+    handler: src/handlers/jobs.main
+    memorySize: 512   # Reduced from 1024MB
+    timeout: 10       # Reduced from default
+    events:
+      - http:
+          path: jobs
+          method: any
+          cors: true
+          integration: lambda
+      - http:
+          path: jobs/{jobId}
+          method: any
+          cors: true
+          integration: lambda
+
+  # Match Scores Handler
+  MatchScoresHandler:
+    handler: src/handlers/matchScores.main
+    memorySize: 512   # Reduced from 1024MB
+    timeout: 10       # Reduced from default
+    events:
+      - http:
+          path: matches
+          method: any
+          cors: true
+          integration: lambda
+      - http:
+          path: matches/{jobId}
+          method: any
+          cors: true
+          integration: lambda
+
+  # Worker Functions - Optimized for batch processing
+  ResumeParserWorker:
+    handler: src/handlers/workers/resumeParser.main
+    memorySize: 1024  # Reduced from 2048MB
+    timeout: 60       # Reduced from 300s
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [ResumeProcessingQueue, Arn]
+          batchSize: 5                    # Process multiple messages
+          maximumBatchingWindow: 10       # Wait up to 10s for batch
+          functionResponseType: ReportBatchItemFailures
+
+  SkillExtractorWorker:
+    handler: src/handlers/workers/skillExtractor.main
+    memorySize: 1024  # Reduced from 2048MB
+    timeout: 120      # Reduced from 300s (LLM calls need more time)
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [SkillExtractionQueue, Arn]
+          batchSize: 3                    # Smaller batch for LLM operations
+          maximumBatchingWindow: 5        # Shorter wait for LLM operations
+          functionResponseType: ReportBatchItemFailures
+
+  ScorerWorker:
+    handler: src/handlers/workers/scorer.main
+    memorySize: 1024  # Reduced from 2048MB
+    timeout: 120      # Reduced from 300s (LLM calls need more time)
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [ScoringQueue, Arn]
+          batchSize: 3                    # Smaller batch for LLM operations
+          maximumBatchingWindow: 5        # Shorter wait for LLM operations
+          functionResponseType: ReportBatchItemFailures
 
 # Create our resources with separate CloudFormation templates
 resources:

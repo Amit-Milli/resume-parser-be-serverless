@@ -1,38 +1,217 @@
-# userID, Name ,Email, LastName, Phone Number, Company, `Owner, addedBY, LinkedIn, info(metadata)
+# DynamoDB Tables for Resume Parser System
 Resources:
 
-  # Description - User details specific for a account returns tags, customised views, personal info
-  UsersTable:
+  # Jobs Table - Store job positions and requirements
+  JobsTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
     Properties:
-      TableName: ${self:custom.usersTable}
+      TableName: ${self:custom.jobsTable}
       AttributeDefinitions:
         - AttributeName: id
           AttributeType: S
-        - AttributeName: accountId
+        - AttributeName: company
           AttributeType: S
-        - AttributeName: email
+        - AttributeName: createdAt
+          AttributeType: S
+        - AttributeName: status
           AttributeType: S
       KeySchema:
         - AttributeName: id
           KeyType: HASH
-        - AttributeName: accountId
-          KeyType: RANGE
       BillingMode: PAY_PER_REQUEST
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: ${self:custom.pointInTimeRecoveryEnabled.${opt:stage}, self:custom.pointInTimeRecoveryEnabled.other}
-
       GlobalSecondaryIndexes:
-        - IndexName: FetchAccountInfo
+        - IndexName: CompanyIndex
           KeySchema:
-            - AttributeName: accountId
+            - AttributeName: company
               KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
           Projection:
             ProjectionType: ALL
-        - IndexName: FetchUserUsingEmail-index
+        - IndexName: StatusIndex
           KeySchema:
-            - AttributeName: email
+            - AttributeName: status
               KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # Resumes Table - Store parsed resume data with TTL
+  ResumesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      TableName: ${self:custom.resumesTable}
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: jobId
+          AttributeType: S
+        - AttributeName: candidateEmail
+          AttributeType: S
+        - AttributeName: uploadedAt
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: ttl
+          AttributeType: N
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: ${self:custom.pointInTimeRecoveryEnabled.${opt:stage}, self:custom.pointInTimeRecoveryEnabled.other}
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: JobResumesIndex
+          KeySchema:
+            - AttributeName: jobId
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: CandidateIndex
+          KeySchema:
+            - AttributeName: candidateEmail
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: TTLIndex
+          KeySchema:
+            - AttributeName: ttl
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # Match Scores Table - Store computed match scores with TTL
+  MatchScoresTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      TableName: ${self:custom.matchScoresTable}
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: resumeId
+          AttributeType: S
+        - AttributeName: jobId
+          AttributeType: S
+        - AttributeName: matchScore
+          AttributeType: N
+        - AttributeName: createdAt
+          AttributeType: S
+        - AttributeName: ttl
+          AttributeType: N
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: ${self:custom.pointInTimeRecoveryEnabled.${opt:stage}, self:custom.pointInTimeRecoveryEnabled.other}
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: JobScoresIndex
+          KeySchema:
+            - AttributeName: jobId
+              KeyType: HASH
+            - AttributeName: matchScore
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ResumeScoresIndex
+          KeySchema:
+            - AttributeName: resumeId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: TopScoresIndex
+          KeySchema:
+            - AttributeName: matchScore
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: TTLIndex
+          KeySchema:
+            - AttributeName: ttl
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # Processing Queue Table - Track processing status with TTL
+  ProcessingQueueTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+    Properties:
+      TableName: ${self:custom.processingQueueTable}
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: resumeId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+        - AttributeName: ttl
+          AttributeType: N
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: ${self:custom.pointInTimeRecoveryEnabled.${opt:stage}, self:custom.pointInTimeRecoveryEnabled.other}
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ResumeIndex
+          KeySchema:
+            - AttributeName: resumeId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: TTLIndex
+          KeySchema:
+            - AttributeName: ttl
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
           Projection:
             ProjectionType: ALL      

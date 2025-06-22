@@ -1,30 +1,22 @@
 /* eslint-disable no-console */
-import { isLowerEnv } from '../constants';
-// import { generateEncryptedObject } from "./util";
 export default class Logger {
   static log(...params) {
-    console.log(isLowerEnv ? params : params[0]);
+    console.log(...params);
   }
 
   static debug(...params) {
-    console.debug(isLowerEnv ? params : params[0]);
+    console.debug(...params);
   }
 
   static warn(...params) {
-    console.warn(isLowerEnv ? params : params[0]);
+    console.warn(...params);
   }
 
   static info(...params) {
-    console.info(isLowerEnv ? params : params[0]);
+    console.info(...params);
   }
 
   static error(...params) {
-    console.info('Error -', params);
-    // console.info('Error -', isLowerEnv ? params : params[0]);
-    // if (!isLowerEnv) {
-    //   params.forEach(param => {
-    //     console.warn(generateEncryptedObject(JSON.stringify(param, Object.getOwnPropertyNames(param))), '******');
-    //   });
-    // }
+    console.error('Error -', ...params);
   }
 }
