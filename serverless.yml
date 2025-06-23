@@ -161,14 +161,7 @@ provider:
             - "Fn::GetAtt": [resumebucket, Arn]
 
 plugins:
-  # - serverless-bundle
-  # - serverless-offline
-  # - serverless-dotenv-plugin
-  # - serverless-pseudo-parameters
-  # - serverless-esbuild  # Removed - Serverless v4 includes ESBuild out-of-the-box
-  # - serverless-step-functions
   - serverless-prune-plugin
-  # - serverless-plugin-tracing
 
 custom:
   # Our stage and region is based on what is we have set in the provider section. Or fallsback to what we have set in .env file.
@@ -214,11 +207,6 @@ custom:
     sourcemap: true
     keepNames: true
     target: node20
-    format: esm
-    mainFields: ['module', 'main']
-    external:
-      - '@aws-sdk/*'
-      - 'aws-sdk'
 
   prune:
     automatic: true

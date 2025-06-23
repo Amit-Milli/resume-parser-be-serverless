@@ -4,12 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Resume parser AI agent backend code with serverless framework, lambda, dynamodb,  for authentication, s3, langraph",
-  "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=10.0.0"
-  },
   "scripts": {
-    "test": "serverless-bundle test",
     "deploy": "stage=test region=us-east-1 serverless deploy",
     "lint": "eslint 'src/**/*.js'",
     "lint:fix": "eslint --fix 'src/**/*.js'",
