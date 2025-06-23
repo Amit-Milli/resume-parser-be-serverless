@@ -3,7 +3,6 @@
   "author": "Amit-Milli",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "Resume parser AI agent backend code with serverless framework, lambda, dynamodb,  for authentication, s3, langraph",
   "engines": {
     "node": ">=20.0.0",

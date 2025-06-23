@@ -26,7 +26,6 @@ provider:
     stage: ${opt:stage}
     region: ${opt:region}
     NODE_OPTIONS: --enable-source-maps
-    APP_URL: ${env:APP_URL}
     bucketsuffix: ${env:bucketsuffix}
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
     # DynamoDB Table Names
