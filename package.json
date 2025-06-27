@@ -22,9 +22,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.540.0",
-    "@aws-sdk/lib-dynamodb": "^3.540.0",
     "@aws-sdk/client-s3": "^3.540.0",
     "@aws-sdk/client-sqs": "^3.540.0",
+    "@aws-sdk/lib-dynamodb": "^3.540.0",
     "@langchain/core": "^0.3.61",
     "@langchain/openai": "^0.5.15",
     "axios": "^1.7.2",

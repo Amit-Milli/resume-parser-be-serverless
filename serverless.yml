@@ -1,5 +1,5 @@
 service: resume-parser
-useDotenv: true
+# useDotenv: true
 
 provider:
   name: aws
@@ -154,9 +154,9 @@ provider:
             - s3:GetObject
             - s3:ListBucket
             - s3:DeleteObject
-            - s3:AbortMultipartUpload,
-            - s3:ListMultipartUploadParts,
-            - s3:ListBucketMultipartUploads,
+            - s3:AbortMultipartUpload
+            - s3:ListMultipartUploadParts
+            - s3:ListBucketMultipartUploads
           Resource:
             - "Fn::GetAtt": [resumebucket, Arn]
 
@@ -167,8 +167,6 @@ custom:
   # Our stage and region is based on what is we have set in the provider section. Or fallsback to what we have set in .env file.
   stage: ${self:provider.stage}
   region: ${self:provider.region}
-
-  accountsTable: accountsTable-${self:provider.stage}
   jobsTable: jobsTable-${self:provider.stage}
   resumesTable: resumesTable-${self:provider.stage}
   matchScoresTable: matchScoresTable-${self:provider.stage}
@@ -177,7 +175,6 @@ custom:
   EventQueue: EventStandardQueue-${self:provider.stage}
   deletionPolicy: 
     production: Retain
-    sprouts: Retain
     other: Delete
   pointInTimeRecoveryEnabled: 
     production: true # please change the name production to new stage name for production app backednd
@@ -200,13 +197,28 @@ custom:
   #   generateStatsFiles: true
 
   # Built-in ESBuild configuration for Serverless Framework v4
+build:
   esbuild:
-    concurrency: 1
+    # Enable or Disable bundling the function code and dependencies into a single file. (Default: true)
     bundle: true
+    # NPM packages to not be bundled, and instead be available in node_modules, and the zip file uploaded to Lambda.
+    #
+    # This property only makes sense if bundling is enabled.
+    #
+    # If no excludes (see below) are specified, and the runtime is set to nodejs16.x or lower,
+    # we automatically add "aws-sdk" to the list of externals.
+    #
+    # If no excludes (see below) are specified, and the runtime is set to nodejs18.x or higher,
+    # we automatically add "aws-sdk/*" to the list of externals.
+    #
+    # By default Framework will attempt to build and package all functions concurrently.
+    # This property can bet set to a different number if you wish to limit the
+    # concurrency of those operations.
+    buildConcurrency: 3
+    # Enable or Disable minifying the built code. (Default: false)
     minify: true
+    # Enable or configure sourcemaps, can be set to true or to an object with further configuration.
     sourcemap: true
-    keepNames: true
-    target: node20
 
   prune:
     automatic: true
