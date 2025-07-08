@@ -207,6 +207,7 @@ export const sendForSkillExtraction = async (parsedResumeData) => {
       jobId: parsedResumeData.jobId,
       parsedContent: parsedResumeData.parsedContent,
       candidateEmail: parsedResumeData.candidateEmail,
+      processingId: parsedResumeData.processingId,
       timestamp: new Date().toISOString(),
     };
 
@@ -245,7 +246,7 @@ export const sendForScoring = async (skillData) => {
       jobId: skillData.jobId,
       extractedSkills: skillData.extractedSkills,
       jobRequirements: skillData.jobRequirements,
-      candidateEmail: skillData.candidateEmail,
+      processingId: skillData.processingId,
       timestamp: new Date().toISOString(),
     };
 

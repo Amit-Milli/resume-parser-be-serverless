@@ -27,6 +27,7 @@ provider:
     NODE_OPTIONS: --enable-source-maps
     bucketsuffix: ${env:bucketsuffix}
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    HUGGINGFACE_API_TOKEN: ${env:HUGGINGFACE_API_TOKEN}
     # DynamoDB Table Names
     JOBS_TABLE_NAME: ${self:custom.jobsTable}
     RESUMES_TABLE_NAME: ${self:custom.resumesTable}

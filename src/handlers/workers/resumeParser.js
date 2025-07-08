@@ -207,6 +207,7 @@ export const main = handler(async (event) => {
           jobId,
           parsedContent: parsedText,
           candidateEmail,
+          processingId,
         });
 
         Logger.log(`Successfully processed resume: ${resumeId}`);
@@ -224,7 +225,7 @@ export const main = handler(async (event) => {
     // Update final processing statuses
     const finalStatusUpdates = processingResults.map(({ processingId }) => ({
       processingId,
-      status: PROCESSING_STATUS.EXTRACTING_SKILLS,
+      status: PROCESSING_STATUS.PARSING,
       additionalData: {
         parsingCompletedAt: new Date().toISOString(),
       },

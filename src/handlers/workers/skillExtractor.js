@@ -1,7 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { ChatOpenAI } from '@langchain/openai';
+import {
+  BatchWriteCommand, DynamoDBDocumentClient, GetCommand,
+} from '@aws-sdk/lib-dynamodb';
+// import { ChatOpenAI } from '@langchain/openai';
 import { PromptTemplate } from '@langchain/core/prompts';
+import { HuggingFaceInference } from '@langchain/community/llms/hf';
 import handler from '../../libs/handler';
 import Logger from '../../libs/logger';
 import { sendForScoring } from '../../libs/queue.lib';
@@ -11,11 +14,23 @@ const dynamoClient = new DynamoDBClient({});
 const dynamoDb = DynamoDBDocumentClient.from(dynamoClient);
 
 // Initialize OpenAI model with optimized settings
-const model = new ChatOpenAI({
-  modelName: 'gpt-3.5-turbo',
+// const model = new ChatOpenAI({
+//   modelName: 'gpt-3.5-turbo',
+//   temperature: 0.1,
+//   maxTokens: 2000, // Limit tokens for cost optimization
+//   openAIApiKey: process.env.OPENAI_API_KEY,
+//   // Add retry configuration
+//   maxRetries: 3,
+//   timeout: 30000,
+// });
+
+// Initialize HuggingFace model with optimized settings
+// Using a more suitable model for structured output
+const model = new HuggingFaceInference({
+  model: 'microsoft/DialoGPT-medium', // Better for conversational/structured output
+  apiKey: process.env.HUGGINGFACE_API_TOKEN,
   temperature: 0.1,
-  maxTokens: 2000, // Limit tokens for cost optimization
-  openAIApiKey: process.env.OPENAI_API_KEY,
+  maxTokens: 1000,
   // Add retry configuration
   maxRetries: 3,
   timeout: 30000,
@@ -36,7 +51,7 @@ EXTRACTION RULES:
 5. Return valid JSON only
 
 REQUIRED OUTPUT FORMAT:
-{
+{{
   "programmingLanguages": ["language1", "language2"],
   "frameworks": ["framework1", "framework2"],
   "databases": ["database1", "database2"],
@@ -45,7 +60,7 @@ REQUIRED OUTPUT FORMAT:
   "softSkills": ["skill1", "skill2"],
   "estimatedExperience": "X years",
   "confidence": 0.85
-}
+}}
 
 Extract skills now:
 `);
@@ -57,7 +72,7 @@ Extract skills now:
  */
 const extractSkillsFromText = async (resumeText) => {
   try {
-    Logger.log('Extracting skills from resume text');
+    Logger.log('Extracting skills from resume text', resumeText);
 
     // Optimize text length for token efficiency
     const maxLength = 3000; // Reduced from 4000 for cost optimization
@@ -75,8 +90,32 @@ const extractSkillsFromText = async (resumeText) => {
           resumeText: truncatedText,
         });
 
+        // HuggingFace returns a string, not an object with content property
         const response = await model.invoke(prompt);
-        const extractedSkills = JSON.parse(response.content);
+
+        // OpenAI extracted skills
+        // const extractedSkills = JSON.parse(response.content);
+
+        // Try to parse the response as JSON
+        let extractedSkills;
+        try {
+          // Clean the response - remove any markdown formatting
+          const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+          extractedSkills = JSON.parse(cleanedResponse);
+        } catch (parseError) {
+          Logger.warn('Failed to parse LLM response as JSON, using fallback:', parseError.message);
+          // Fallback: create a basic structure if parsing fails
+          extractedSkills = {
+            programmingLanguages: [],
+            frameworks: [],
+            databases: [],
+            cloudPlatforms: [],
+            tools: [],
+            softSkills: [],
+            estimatedExperience: 'Unknown',
+            confidence: 0.5,
+          };
+        }
 
         // Validate extracted skills
         if (!extractedSkills || typeof extractedSkills !== 'object') {
@@ -161,7 +200,7 @@ const updateResumesWithSkills = async (resumeUpdates) => {
         },
       };
 
-      const result = await dynamoDb.send(new PutCommand(params));
+      const result = await dynamoDb.send(new BatchWriteCommand(params));
       results.push(result);
     }
 
@@ -206,7 +245,7 @@ const updateProcessingStatuses = async (statusUpdates) => {
         },
       };
 
-      const result = await dynamoDb.send(new PutCommand(params));
+      const result = await dynamoDb.send(new BatchWriteCommand(params));
       results.push(result);
     }
 
@@ -244,7 +283,7 @@ export const main = handler(async (event) => {
         const {
           resumeId,
           jobId,
-          parsedText,
+          parsedContent,
           processingId,
         } = messageBody;
 
@@ -258,7 +297,7 @@ export const main = handler(async (event) => {
         }]);
 
         // Extract skills from resume text
-        const extractedSkills = await extractSkillsFromText(parsedText);
+        const extractedSkills = await extractSkillsFromText(parsedContent);
 
         // Get job requirements for comparison
         const jobRequirements = await getJobRequirements(jobId);

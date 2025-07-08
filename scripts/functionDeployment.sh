@@ -1,1 +1,1 @@
-sls deploy -f $1 --region us-east-1 --stage $2 --aws-profile $3
+serverless deploy function --function $1 --region us-east-1 --stage $2 --aws-profile $3
