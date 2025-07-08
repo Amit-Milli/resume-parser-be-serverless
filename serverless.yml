@@ -195,7 +195,12 @@ custom:
   #   disableForkTsChecker: true
   #   generateStatsFiles: true
 
-  # Built-in ESBuild configuration for Serverless Framework v4
+  prune:
+    automatic: true
+    # includeLayers: true // Turning it on does not make any difference in overall lambda size
+    number: 1
+
+# Built-in ESBuild configuration for Serverless Framework v4
 build:
   esbuild:
     # Enable or Disable bundling the function code and dependencies into a single file. (Default: true)
@@ -218,12 +223,6 @@ build:
     minify: true
     # Enable or configure sourcemaps, can be set to true or to an object with further configuration.
     sourcemap: true
-
-
-  prune:
-    automatic: true
-    # includeLayers: true // Turning it on does not make any difference in overall lambda size
-    number: 1
 
 # Create an optimized package for our functions
 package:
