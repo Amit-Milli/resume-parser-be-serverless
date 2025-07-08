@@ -110,7 +110,9 @@ export const main = handler(async (event) => {
   try {
     Logger.log('Match scores request received', { event });
 
-    const { httpMethod, pathParameters, queryStringParameters } = event;
+    // Handle different API Gateway event structures
+    const httpMethod = event.httpMethod || event.method;
+    const { pathParameters, queryStringParameters } = event;
     const jobId = pathParameters?.jobId;
     const { limit, resumeId } = queryStringParameters || {};
 
@@ -133,7 +135,9 @@ export const main = handler(async (event) => {
               count: matchScores.length,
             }),
           };
-        } if (resumeId) {
+        }
+
+        if (resumeId) {
           // Get match scores for specific resume
           const matchScores = await getMatchScoresByResume(resumeId);
 
@@ -150,7 +154,9 @@ export const main = handler(async (event) => {
               count: matchScores.length,
             }),
           };
-        } if (limit) {
+        }
+
+        if (limit) {
           // Get top match scores
           const topScores = await getTopMatchScores(parseInt(limit, 10));
 
@@ -167,6 +173,7 @@ export const main = handler(async (event) => {
             }),
           };
         }
+
         // Get all match scores
         const matchScores = await getAllMatchScores();
 
@@ -185,6 +192,7 @@ export const main = handler(async (event) => {
       }
 
       default:
+        Logger.log('Method not allowed:', httpMethod);
         return {
           statusCode: 405,
           headers: {

@@ -165,16 +165,10 @@ export const main = handler(async (event) => {
     const { pathParameters } = event;
     const jobId = pathParameters?.jobId;
 
-    Logger.log('HTTP Method:', httpMethod);
-    Logger.log('Event keys:', Object.keys(event));
-    Logger.log('Event method field:', event.method);
-    Logger.log('Event httpMethod field:', event.httpMethod);
-
     switch (httpMethod) {
       case 'POST': {
-        const jobData = JSON.parse(event.body);
+        const jobData = event.body;
         const newJob = await createJob(jobData);
-
         return {
           statusCode: 201,
           headers: {
@@ -226,7 +220,7 @@ export const main = handler(async (event) => {
           };
         }
 
-        const updateData = JSON.parse(event.body);
+        const updateData = event.body;
         const updatedJob = await updateJob(jobId, updateData);
 
         return {

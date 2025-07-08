@@ -214,7 +214,7 @@ build:
     # By default Framework will attempt to build and package all functions concurrently.
     # This property can bet set to a different number if you wish to limit the
     # concurrency of those operations.
-    buildConcurrency: 3
+    buildConcurrency: 6
     # Enable or Disable minifying the built code. (Default: false)
     minify: true
     # Enable or configure sourcemaps, can be set to true or to an object with further configuration.
