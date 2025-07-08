@@ -1,23 +1,23 @@
 Resources:
-  # Main Event Queue (existing)
-  EventQueue:
-    Type: "AWS::SQS::Queue"
-    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
-    Properties:
-      QueueName: sqs-${self:custom.EventQueue}
-      VisibilityTimeout: 899
-      MessageRetentionPeriod: 1209600  # 14 days
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt EventQueueDLQ.Arn
-        maxReceiveCount: 3
+  # # Main Event Queue (existing)
+  # EventQueue:
+  #   Type: "AWS::SQS::Queue"
+  #   DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+  #   Properties:
+  #     QueueName: sqs-${self:custom.EventQueue}
+  #     VisibilityTimeout: 899
+  #     MessageRetentionPeriod: 1209600  # 14 days
+  #     RedrivePolicy:
+  #       deadLetterTargetArn: !GetAtt EventQueueDLQ.Arn
+  #       maxReceiveCount: 3
 
-  # Dead Letter Queue for failed messages
-  EventQueueDLQ:
-    Type: "AWS::SQS::Queue"
-    DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
-    Properties:
-      QueueName: sqs-${self:custom.EventQueue}-dlq
-      MessageRetentionPeriod: 1209600  # 14 days
+  # # Dead Letter Queue for failed messages
+  # EventQueueDLQ:
+  #   Type: "AWS::SQS::Queue"
+  #   DeletionPolicy: ${self:custom.deletionPolicy.${opt:stage}, self:custom.deletionPolicy.other}
+  #   Properties:
+  #     QueueName: sqs-${self:custom.EventQueue}-dlq
+  #     MessageRetentionPeriod: 1209600  # 14 days
 
   # Resume Processing Queue - For initial resume upload processing
   ResumeProcessingQueue:

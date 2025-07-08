@@ -41,8 +41,8 @@ provider:
       Ref: ScoringQueue
     # S3 Bucket
     RESUME_S3_BUCKET: ${self:custom.resumebucket}
-    EVENT_QUEUE_URL: 
-      Ref: EventQueue
+    # EVENT_QUEUE_URL: 
+    #   Ref: EventQueue
     REST_ENDPOINT:
       Fn::Join:
         - ""
@@ -61,11 +61,11 @@ provider:
           Action:
             - sqs:*
           Resource:
-            - "Fn::GetAtt": [ EventQueue, Arn ]
+            # - "Fn::GetAtt": [ EventQueue, Arn ]
+            # - "Fn::GetAtt": [ EventQueueDLQ, Arn ]
             - "Fn::GetAtt": [ ResumeProcessingQueue, Arn ]
             - "Fn::GetAtt": [ SkillExtractionQueue, Arn ]
             - "Fn::GetAtt": [ ScoringQueue, Arn ]
-            - "Fn::GetAtt": [ EventQueueDLQ, Arn ]
             - "Fn::GetAtt": [ ResumeProcessingDLQ, Arn ]
             - "Fn::GetAtt": [ SkillExtractionDLQ, Arn ]
             - "Fn::GetAtt": [ ScoringDLQ, Arn ]
@@ -171,7 +171,7 @@ custom:
   matchScoresTable: matchScoresTable-${self:provider.stage}
   processingQueueTable: processingQueueTable-${self:provider.stage}
   resumebucket: resume-parser-eightfold-${env:bucketsuffix} #this needs to come from provider and should be universal to file
-  EventQueue: EventStandardQueue-${self:provider.stage}
+  # EventQueue: EventStandardQueue-${self:provider.stage}
   deletionPolicy: 
     production: Retain
     other: Delete
@@ -213,7 +213,7 @@ build:
     # By default Framework will attempt to build and package all functions concurrently.
     # This property can bet set to a different number if you wish to limit the
     # concurrency of those operations.
-    buildConcurrency: 6
+    # buildConcurrency: 6
     # Enable or Disable minifying the built code. (Default: false)
     minify: true
     # Enable or configure sourcemaps, can be set to true or to an object with further configuration.

@@ -234,8 +234,6 @@ export const main = handler(async (event) => {
       };
     }
 
-    Logger.log('Resume datafwefewewfewfwe:', 'comes here');
-
     // Validate file
     const file = {
       mimetype: 'application/pdf',
@@ -243,8 +241,6 @@ export const main = handler(async (event) => {
       buffer: formData.file.buffer,
     };
     validateFile(file);
-
-    Logger.log('Resume datafwefewewfewfwe:', 'comes here 2');
 
     // Generate resume ID
     const resumeId = uuidv4();
@@ -261,8 +257,6 @@ export const main = handler(async (event) => {
       s3Key,
       fileSize: formData.file.size,
     };
-
-    Logger.log('Resume datafwefewewfewfwe:', resumeData);
 
     await storeResumeRecord(resumeData);
 
