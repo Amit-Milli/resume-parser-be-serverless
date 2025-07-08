@@ -167,25 +167,57 @@ export const main = handler(async (event) => {
   try {
     Logger.log('Resume upload request received', { event });
 
-    // Parse multipart form data
-    const body = event.body;
-    const contentType = event.headers['content-type'] || '';
-    const boundaryMatch = contentType.match(/boundary=([^;]+)/);
+    // Determine content type
+    const contentType = event.headers['content-type'] || event.headers['Content-Type'] || '';
+    let formData;
 
-    if (!boundaryMatch) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
+    if (contentType.startsWith('application/json')) {
+      // Handle JSON body
+      const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+      if (!body.file || !body.fileName || !body.jobId || !body.candidateEmail) {
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': true,
+          },
+          body: JSON.stringify({
+            error: 'Missing required fields: file (base64), fileName, jobId, or candidateEmail',
+          }),
+        };
+      }
+      formData = {
+        file: {
+          buffer: Buffer.from(body.file, 'base64'),
+          name: body.fileName,
+          size: Buffer.from(body.file, 'base64').length,
         },
-        body: JSON.stringify({ error: 'Invalid content type' }),
+        jobId: body.jobId,
+        candidateEmail: body.candidateEmail,
       };
-    }
+    } else {
+      // Parse multipart form data
+      const body = event.isBase64Encoded
+        ? Buffer.from(event.body, 'base64').toString('binary')
+        : event.body;
+      const boundaryMatch = contentType.match(/boundary=([^;]+)/);
 
-    const boundary = boundaryMatch[1];
-    const formData = parseMultipartData(body, boundary);
+      if (!boundaryMatch) {
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': true,
+          },
+          body: JSON.stringify({ error: 'Invalid content type' }),
+        };
+      }
+
+      const boundary = boundaryMatch[1];
+      formData = parseMultipartData(body, boundary);
+    }
 
     // Validate required fields
     if (!formData.file || !formData.jobId || !formData.candidateEmail) {
@@ -202,6 +234,8 @@ export const main = handler(async (event) => {
       };
     }
 
+    Logger.log('Resume datafwefewewfewfwe:', 'comes here');
+
     // Validate file
     const file = {
       mimetype: 'application/pdf',
@@ -209,6 +243,8 @@ export const main = handler(async (event) => {
       buffer: formData.file.buffer,
     };
     validateFile(file);
+
+    Logger.log('Resume datafwefewewfewfwe:', 'comes here 2');
 
     // Generate resume ID
     const resumeId = uuidv4();
@@ -225,6 +261,8 @@ export const main = handler(async (event) => {
       s3Key,
       fileSize: formData.file.size,
     };
+
+    Logger.log('Resume datafwefewewfewfwe:', resumeData);
 
     await storeResumeRecord(resumeData);
 
