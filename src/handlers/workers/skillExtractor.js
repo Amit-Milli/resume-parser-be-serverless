@@ -2,8 +2,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient, GetCommand, UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-// import { ChatOpenAI } from '@langchain/openai';
 import { PromptTemplate } from '@langchain/core/prompts';
+// import { ChatOpenAI } from '@langchain/openai';
 // import { HuggingFaceInference } from '@langchain/community/llms/hf';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import handler from '../../libs/handler';
@@ -42,6 +42,7 @@ const model = new ChatGoogleGenerativeAI({
   model: 'gemini-2.5-flash',
   apiKey: process.env.GOOGLE_API_KEY,
   temperature: 0.1,
+  maxRetries: 3,
 });
 
 // Optimized skill extraction prompt template

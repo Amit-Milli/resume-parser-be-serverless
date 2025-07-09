@@ -15,4 +15,4 @@ export default function TruncateItem(text) {
     truncated = truncated.slice(0, -1);
   }
   return { text: truncated, isTruncated: true };
-};
+}
