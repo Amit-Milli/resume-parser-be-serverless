@@ -69,10 +69,12 @@ Return the results as a JSON object:
   "recommendations": "Recommendations for the hiring team...",
   "confidence": 0.9
 }}
+
+Respond ONLY with valid JSON. Do not include any explanation or text outside the JSON object.
 `);
 
 /**
- * Calculate match score using LangChain with HuggingFace
+ * Calculate match score using LangChain
  * @param {Array} jobRequirements - Job requirements
  * @param {Object} candidateSkills - Candidate's extracted skills
  * @returns {Promise} - Match score and analysis
@@ -139,6 +141,7 @@ const storeMatchScore = async (matchData) => {
         experienceMatch: matchData.experienceMatch,
         missingSkills: matchData.missingSkills,
         bonusSkills: matchData.bonusSkills,
+        extractedSkills: matchData.extractedSkills,
         detailedAnalysis: matchData.detailedAnalysis,
         recommendations: matchData.recommendations,
         confidence: matchData.confidence,
@@ -146,10 +149,8 @@ const storeMatchScore = async (matchData) => {
         scoredAt: new Date().toISOString(),
       },
     };
-
     await dynamoDb.send(new PutCommand(params));
     Logger.log(`Stored match score for resume: ${matchData.resumeId}`);
-
     return params.Item;
   } catch (error) {
     Logger.error('Error storing match score:', error);
@@ -266,6 +267,7 @@ export const main = handler(async (event) => {
           resumeId,
           jobId,
           ...matchScore,
+          extractedSkills,
         };
 
         await storeMatchScore(matchData);

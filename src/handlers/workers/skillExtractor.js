@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  BatchWriteCommand, DynamoDBDocumentClient, GetCommand,
+  DynamoDBDocumentClient, GetCommand, UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 // import { ChatOpenAI } from '@langchain/openai';
 import { PromptTemplate } from '@langchain/core/prompts';
@@ -182,36 +182,22 @@ const getJobRequirements = async (jobId) => {
  */
 const updateResumesWithSkills = async (resumeUpdates) => {
   try {
-    const batchSize = 25; // DynamoDB batch write limit
-    const batches = [];
-
-    for (let i = 0; i < resumeUpdates.length; i += batchSize) {
-      batches.push(resumeUpdates.slice(i, i + batchSize));
-    }
-
     const results = [];
-    for (const batch of batches) {
-      const writeRequests = batch.map(({ resumeId, skills }) => ({
-        PutRequest: {
-          Item: {
-            id: resumeId,
-            extractedSkills: skills,
-            skillsExtractedAt: new Date().toISOString(),
-            status: 'SKILLS_EXTRACTED',
-          },
-        },
-      }));
-
+    for (const { resumeId, skills } of resumeUpdates) {
       const params = {
-        RequestItems: {
-          [process.env.RESUMES_TABLE_NAME]: writeRequests,
+        TableName: process.env.RESUMES_TABLE_NAME,
+        Key: { id: resumeId },
+        UpdateExpression: 'SET extractedSkills = :skills, skillsExtractedAt = :now, #status = :status',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':skills': skills,
+          ':now': new Date().toISOString(),
+          ':status': 'SKILLS_EXTRACTED',
         },
       };
-
-      const result = await dynamoDb.send(new BatchWriteCommand(params));
+      const result = await dynamoDb.send(new UpdateCommand(params));
       results.push(result);
     }
-
     Logger.log(`Updated ${resumeUpdates.length} resumes with extracted skills`);
     return results;
   } catch (error) {
@@ -227,36 +213,29 @@ const updateResumesWithSkills = async (resumeUpdates) => {
  */
 const updateProcessingStatuses = async (statusUpdates) => {
   try {
-    const batchSize = 25; // DynamoDB batch write limit
-    const batches = [];
-
-    for (let i = 0; i < statusUpdates.length; i += batchSize) {
-      batches.push(statusUpdates.slice(i, i + batchSize));
-    }
-
     const results = [];
-    for (const batch of batches) {
-      const writeRequests = batch.map(({ processingId, status, additionalData }) => ({
-        PutRequest: {
-          Item: {
-            id: processingId,
-            status,
-            updatedAt: new Date().toISOString(),
-            ...additionalData,
-          },
-        },
-      }));
-
+    for (const update of statusUpdates) {
+      const { processingId, status, additionalData } = update;
+      let updateExpr = 'SET #status = :status, updatedAt = :now';
+      const exprAttrNames = { '#status': 'status' };
+      const exprAttrValues = { ':status': status, ':now': new Date().toISOString() };
+      if (additionalData) {
+        Object.keys(additionalData).forEach((key) => {
+          updateExpr += `, #${key} = :${key}`;
+          exprAttrNames[`#${key}`] = key;
+          exprAttrValues[`:${key}`] = additionalData[key];
+        });
+      }
       const params = {
-        RequestItems: {
-          [process.env.PROCESSING_QUEUE_TABLE_NAME]: writeRequests,
-        },
+        TableName: process.env.PROCESSING_QUEUE_TABLE_NAME,
+        Key: { id: processingId },
+        UpdateExpression: updateExpr,
+        ExpressionAttributeNames: exprAttrNames,
+        ExpressionAttributeValues: exprAttrValues,
       };
-
-      const result = await dynamoDb.send(new BatchWriteCommand(params));
+      const result = await dynamoDb.send(new UpdateCommand(params));
       results.push(result);
     }
-
     Logger.log(`Updated ${statusUpdates.length} processing statuses`);
     return results;
   } catch (error) {
