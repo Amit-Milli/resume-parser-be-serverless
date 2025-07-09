@@ -1,12 +1,13 @@
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, BatchWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import pdf from 'pdf-parse';
 import { v4 as uuidv4 } from 'uuid';
 import handler from '../../libs/handler';
 import Logger from '../../libs/logger';
 import { sendForSkillExtraction } from '../../libs/queue.lib';
 import { PROCESSING_STATUS } from '../../constants/tableName.constants';
+import TruncateItem from '../../utils/helper';
 
 const s3Client = new S3Client({});
 const dynamoClient = new DynamoDBClient({});
@@ -54,43 +55,28 @@ const parsePDFFromS3 = async (s3Key) => {
  */
 const storeParsedResumes = async (resumeDataArray) => {
   try {
-    const batchSize = 25; // DynamoDB batch write limit
-    const batches = [];
-
-    for (let i = 0; i < resumeDataArray.length; i += batchSize) {
-      batches.push(resumeDataArray.slice(i, i + batchSize));
-    }
-
     const results = [];
-    for (const batch of batches) {
-      const writeRequests = batch.map((resumeData) => ({
-        PutRequest: {
-          Item: {
-            id: resumeData.resumeId,
-            jobId: resumeData.jobId,
-            candidateEmail: resumeData.candidateEmail,
-            s3Key: resumeData.s3Key,
-            parsedText: resumeData.parsedText,
-            status: 'PARSED',
-            uploadedAt: new Date().toISOString(),
-            parsedAt: new Date().toISOString(),
-            processingId: resumeData.processingId,
-          },
-        },
-      }));
-
+    for (const resumeData of resumeDataArray) {
       const params = {
-        RequestItems: {
-          [process.env.RESUMES_TABLE_NAME]: writeRequests,
+        TableName: process.env.RESUMES_TABLE_NAME,
+        Key: { id: resumeData.resumeId },
+        UpdateExpression: 'SET jobId = :jobId, candidateEmail = :candidateEmail, s3Key = :s3Key, parsedText = :parsedText, #status = :status, uploadedAt = :uploadedAt, parsedAt = :parsedAt, processingId = :processingId',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':jobId': resumeData.jobId,
+          ':candidateEmail': resumeData.candidateEmail,
+          ':s3Key': resumeData.s3Key,
+          ':parsedText': resumeData.parsedText,
+          ':status': 'PARSED',
+          ':uploadedAt': new Date().toISOString(),
+          ':parsedAt': new Date().toISOString(),
+          ':processingId': resumeData.processingId,
         },
       };
-
-      const result = await dynamoDb.send(new BatchWriteCommand(params));
+      const result = await dynamoDb.send(new UpdateCommand(params));
       results.push(result);
-
-      Logger.log(`Stored ${batch.length} parsed resume records`);
     }
-
+    Logger.log(`Stored ${resumeDataArray.length} parsed resume records`);
     return results;
   } catch (error) {
     Logger.error('Error storing parsed resumes:', error);
@@ -201,11 +187,15 @@ export const main = handler(async (event) => {
 
         processingResults.push(resumeData);
 
+        // check if parsedText is too large for dynamoDb constraints
+        const { text, isTruncated } = TruncateItem(parsedText);
+
         // Send for skill extraction
         await sendForSkillExtraction({
           resumeId,
           jobId,
-          parsedContent: parsedText,
+          parsedContent: text,
+          isTruncated,
           candidateEmail,
           processingId,
         });

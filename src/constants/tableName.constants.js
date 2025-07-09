@@ -38,6 +38,9 @@ export const S3_BUCKETS = {
   RESUME_S3_BUCKET: process.env.RESUME_S3_BUCKET,
 };
 
+// MAX_DYNAMODB_ITEM_SIZE = 400 * 1024 (400 KB)
+export const MAX_DYNAMODB_ITEM_SIZE = 350 * 1024; // 350 KB for safety as dynamodb does not allow size bigger than 400K
+
 // Export all constants
 export default {
   ...tableNames,

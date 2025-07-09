@@ -223,7 +223,7 @@ export const sendForSkillExtraction = async (parsedResumeData) => {
       process.env.RESUMES_TABLE_NAME,
       parsedResumeData.resumeId,
       'SKILL_EXTRACTION',
-      { skillExtractionStartedAt: new Date().toISOString() },
+      { skillExtractionStartedAt: new Date().toISOString(), isTruncated: parsedResumeData.isTruncated },
     );
 
     return result;
