@@ -30,6 +30,7 @@
     "@huggingface/inference": "^4.4.0",
     "@langchain/community": "^0.3.48",
     "@langchain/core": "^0.3.62",
+    "@langchain/google-genai": "^0.2.14",
     "@langchain/openai": "^0.5.15",
     "pdf-parse": "^1.1.1",
     "uuid": "^11.1.0"

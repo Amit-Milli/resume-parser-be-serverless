@@ -4,7 +4,8 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 // import { ChatOpenAI } from '@langchain/openai';
 import { PromptTemplate } from '@langchain/core/prompts';
-import { HuggingFaceInference } from '@langchain/community/llms/hf';
+// import { HuggingFaceInference } from '@langchain/community/llms/hf';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import handler from '../../libs/handler';
 import Logger from '../../libs/logger';
 import { sendForScoring } from '../../libs/queue.lib';
@@ -25,15 +26,22 @@ const dynamoDb = DynamoDBDocumentClient.from(dynamoClient);
 // });
 
 // Initialize HuggingFace model with optimized settings
-// Using a more suitable model for structured output
-const model = new HuggingFaceInference({
-  model: 'microsoft/DialoGPT-medium', // Better for conversational/structured output
-  apiKey: process.env.HUGGINGFACE_API_TOKEN,
+// Using a model that's available on HuggingFace inference API
+// const model = new HuggingFaceInference({
+//   model: 'gpt2', // This should definitely be available
+//   apiKey: process.env.HUGGINGFACE_API_TOKEN,
+//   temperature: 0.1,
+//   maxTokens: 1000,
+//   // Add retry configuration
+//   maxRetries: 3,
+//   timeout: 30000,
+// });
+
+// Initialize Google gemini model for scoring
+const model = new ChatGoogleGenerativeAI({
+  model: 'gemini-2.5-flash',
+  apiKey: process.env.GOOGLE_API_KEY,
   temperature: 0.1,
-  maxTokens: 1000,
-  // Add retry configuration
-  maxRetries: 3,
-  timeout: 30000,
 });
 
 // Optimized skill extraction prompt template
@@ -90,32 +98,32 @@ const extractSkillsFromText = async (resumeText) => {
           resumeText: truncatedText,
         });
 
-        // HuggingFace returns a string, not an object with content property
         const response = await model.invoke(prompt);
 
-        // OpenAI extracted skills
+        // OpenAI or google gemini extracted skills
         // const extractedSkills = JSON.parse(response.content);
 
-        // Try to parse the response as JSON
+        // google gemini extracted skills
+        // Parse response content - handle markdown formatting
         let extractedSkills;
         try {
           // Clean the response - remove any markdown formatting
-          const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+          const cleanedResponse = response.content.replace(/```json\n?|\n?```/g, '').trim();
           extractedSkills = JSON.parse(cleanedResponse);
         } catch (parseError) {
-          Logger.warn('Failed to parse LLM response as JSON, using fallback:', parseError.message);
-          // Fallback: create a basic structure if parsing fails
-          extractedSkills = {
-            programmingLanguages: [],
-            frameworks: [],
-            databases: [],
-            cloudPlatforms: [],
-            tools: [],
-            softSkills: [],
-            estimatedExperience: 'Unknown',
-            confidence: 0.5,
-          };
+          Logger.error('Failed to parse LLM response as JSON, using fallback:', parseError.message);
         }
+
+        // HuggingFace returns a string, not an object with content property
+        // Try to parse the response as JSON
+        // let extractedSkills;
+        // try {
+        //   // Clean the response - remove any markdown formatting
+        //   const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+        //   extractedSkills = JSON.parse(cleanedResponse);
+        // } catch (parseError) {
+        //   Logger.error('Failed to parse LLM response as JSON, using fallback:', parseError.message);
+        // }
 
         // Validate extracted skills
         if (!extractedSkills || typeof extractedSkills !== 'object') {

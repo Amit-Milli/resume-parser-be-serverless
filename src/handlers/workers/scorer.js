@@ -4,7 +4,8 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 // import { ChatOpenAI } from '@langchain/openai';
 import { PromptTemplate } from '@langchain/core/prompts';
-import { HuggingFaceInference } from '@langchain/community/llms/hf';
+// import { HuggingFaceInference } from '@langchain/community/llms/hf';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import handler from '../../libs/handler';
 import Logger from '../../libs/logger';
 import { PROCESSING_STATUS } from '../../constants/tableName.constants';
@@ -19,13 +20,20 @@ const dynamoDb = DynamoDBDocumentClient.from(dynamoClient);
 // });
 
 // Initialize HuggingFace model for scoring
-const model = new HuggingFaceInference({
-  model: 'microsoft/DialoGPT-medium', // Better for conversational/structured output
-  apiKey: process.env.HUGGINGFACE_API_TOKEN,
+// const model = new HuggingFaceInference({
+//   model: 'gpt2', // Smaller model, more likely to be available
+//   apiKey: process.env.HUGGINGFACE_API_TOKEN,
+//   temperature: 0.1,
+//   maxTokens: 1500,
+//   maxRetries: 3,
+//   timeout: 30000,
+// });
+
+// Initialize Google gemini model for scoring
+const model = new ChatGoogleGenerativeAI({
+  model: 'gemini-2.5-flash',
+  apiKey: process.env.GOOGLE_API_KEY,
   temperature: 0.1,
-  maxTokens: 1500,
-  maxRetries: 3,
-  timeout: 30000,
 });
 
 // Scoring prompt template
@@ -78,32 +86,32 @@ const calculateMatchScore = async (jobRequirements, candidateSkills) => {
       candidateSkills: JSON.stringify(candidateSkills, null, 2),
     });
 
-    // HuggingFace returns a string, not an object with content property
     const response = await model.invoke(prompt);
 
-    // OpenAI marchscore
+    // OpenAI or gemini marchscore
     // const matchScore = JSON.parse(response.content);
 
-    // Try to parse the response as JSON
+    // gemini marchscore
+    // Parse response content - handle markdown formatting
     let matchScore;
     try {
       // Clean the response - remove any markdown formatting
-      const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+      const cleanedResponse = response.content.replace(/```json\n?|\n?```/g, '').trim();
       matchScore = JSON.parse(cleanedResponse);
     } catch (parseError) {
-      Logger.warn('Failed to parse LLM response as JSON, using fallback:', parseError.message);
-      // Fallback: create a basic structure if parsing fails
-      matchScore = {
-        overallScore: 50,
-        technicalMatch: 50,
-        experienceMatch: 50,
-        missingSkills: [],
-        bonusSkills: [],
-        detailedAnalysis: 'Analysis unavailable due to parsing error',
-        recommendations: 'Unable to provide recommendations',
-        confidence: 0.3,
-      };
+      Logger.error('Failed to parse LLM response as JSON, using fallback:', parseError.message);
     }
+
+    // HuggingFace returns a string, not an object with content property
+    // // Try to parse the response as JSON
+    // let matchScore;
+    // try {
+    //   // Clean the response - remove any markdown formatting
+    //   const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+    //   matchScore = JSON.parse(cleanedResponse);
+    // } catch (parseError) {
+    //   Logger.error('Failed to parse LLM response as JSON, using fallback:', parseError.message);
+    // }
 
     Logger.log('Successfully calculated match score:', matchScore);
     return matchScore;
@@ -159,7 +167,10 @@ const updateResumeStatus = async (resumeId, matchScore) => {
     const params = {
       TableName: process.env.RESUMES_TABLE_NAME,
       Key: { id: resumeId },
-      UpdateExpression: 'SET status = :status, matchScore = :score, scoredAt = :timestamp',
+      UpdateExpression: 'SET #status = :status, matchScore = :score, scoredAt = :timestamp',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
       ExpressionAttributeValues: {
         ':status': 'SCORED',
         ':score': matchScore,
@@ -193,13 +204,18 @@ const updateProcessingStatus = async (processingId, status, additionalData = {})
       ExpressionAttributeValues: {
         ':status': status,
         ':updatedAt': new Date().toISOString(),
-        ...additionalData,
       },
     };
 
+    // Add additional data with proper attribute names and values
     Object.keys(additionalData).forEach((key) => {
       if (key !== 'id') {
-        params.UpdateExpression += `, ${key} = :${key}`;
+        const attrName = `#${key}`;
+        const attrValue = `:${key}`;
+
+        params.UpdateExpression += `, ${attrName} = ${attrValue}`;
+        params.ExpressionAttributeNames[attrName] = key;
+        params.ExpressionAttributeValues[attrValue] = additionalData[key];
       }
     });
 
